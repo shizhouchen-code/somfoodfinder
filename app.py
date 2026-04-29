@@ -6,7 +6,7 @@ from datetime import datetime
 from urllib.parse import quote, urlencode, urljoin
 from urllib.request import Request, urlopen
 
-from flask import Flask, render_template, request
+from flask import Flask, redirect, render_template, request, session, url_for
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -17,6 +17,8 @@ SOM_MOBILE_EVENTS_API = "https://groups.som.yale.edu/mobile_ws/v17/mobile_events
 load_dotenv()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+APP_PASSWORD = os.getenv("PASSWORD", "")
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-in-env")
 
 
 def build_mobile_events_api_url(start_date_str: str, end_date_str: str) -> str:
@@ -247,9 +249,11 @@ def find_food_events(events: list[dict[str, str]]) -> list[dict[str, str]]:
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    is_authenticated = bool(session.get("authenticated"))
     events = []
     error = ""
     message = ""
+    auth_error = ""
     form_data = {
         "start_date": datetime.now().strftime("%Y-%m-%d"),
         "end_date": datetime.now().strftime("%Y-%m-%d"),
@@ -257,6 +261,16 @@ def index():
     api_url = ""
 
     if request.method == "POST":
+        if request.form.get("action") == "unlock":
+            submitted_password = request.form.get("password", "")
+            if APP_PASSWORD and submitted_password == APP_PASSWORD:
+                session["authenticated"] = True
+                return redirect(url_for("index"))
+            auth_error = "Incorrect password."
+        elif not is_authenticated:
+            auth_error = "Please enter the password to access the app."
+
+    if is_authenticated and request.method == "POST":
         action = request.form.get("action", "fetch_events")
         form_data["start_date"] = request.form.get("start_date", "").strip()
         form_data["end_date"] = request.form.get("end_date", "").strip()
@@ -280,6 +294,8 @@ def index():
         events=events,
         error=error,
         message=message,
+        auth_error=auth_error,
+        is_authenticated=is_authenticated,
         form_data=form_data,
         api_url=api_url,
     )

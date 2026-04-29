@@ -8,6 +8,30 @@
   </head>
   <body>
     <main class="page">
+      {% if not is_authenticated %}
+      <section class="card hero">
+        <h1>Food Finder</h1>
+        <p>Enter password to continue.</p>
+      </section>
+
+      <section class="card">
+        <form method="post" class="search-form">
+          <label>
+            Password
+            <input type="password" name="password" required autofocus />
+          </label>
+          <div class="button-row">
+            <button type="submit" name="action" value="unlock">Unlock App</button>
+          </div>
+        </form>
+      </section>
+
+      {% if auth_error %}
+      <section class="card error">
+        <strong>Oops:</strong> {{ auth_error }}
+      </section>
+      {% endif %}
+      {% else %}
       <section class="card hero">
         <h1>Food Finder</h1>
       </section>
@@ -92,6 +116,7 @@
       <section class="card">
         <h2>No events found for this date range.</h2>
       </section>
+      {% endif %}
       {% endif %}
     </main>
     <script>
