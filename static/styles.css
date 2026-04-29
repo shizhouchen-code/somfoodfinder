@@ -1,0 +1,149 @@
+:root {
+  --bg: #fff8fc;
+  --card: #ffffff;
+  --ink: #463d47;
+  --muted: #7a6f79;
+  --pink: #ffd7ea;
+  --lav: #ece1ff;
+  --accent: #ff8ab6;
+  --accent-dark: #e05b92;
+  --line: #f1dbea;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 10% 20%, var(--lav) 0%, var(--bg) 40%, #fff 100%);
+}
+
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 16px 36px;
+}
+
+.card {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 22px rgba(216, 160, 195, 0.15);
+}
+
+.hero {
+  background: linear-gradient(120deg, var(--pink), #ffeefa);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+h2 {
+  margin: 0 0 12px;
+}
+
+p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.search-form {
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5d2df;
+  padding: 10px 12px;
+  font-size: 0.98rem;
+}
+
+input:focus {
+  outline: 2px solid #ffd0e5;
+  border-color: #ffc1dd;
+}
+
+button {
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--accent-dark);
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hint {
+  font-size: 0.93rem;
+}
+
+.session-pill {
+  display: inline-block;
+  background: #f2f9ff;
+  border: 1px solid #bfdff8;
+  color: #2c5d88;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+}
+
+.success {
+  border-color: #cdeccf;
+  background: #f3fff4;
+}
+
+.error {
+  border-color: #ffb4d0;
+  background: #fff1f7;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 8px;
+  text-align: left;
+}
+
+th {
+  background: #fff4fb;
+}
+
+a {
+  color: #be4c80;
+  font-weight: 600;
+}

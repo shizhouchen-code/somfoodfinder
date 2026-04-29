@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Food Finder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card hero">
+        <h1>Food Finder</h1>
+      </section>
+
+      <section class="card">
+        <form method="post" class="search-form">
+          <label>
+            Start date
+            <input type="date" name="start_date" required value="{{ form_data.start_date }}" />
+          </label>
+          <label>
+            End date
+            <input type="date" name="end_date" required value="{{ form_data.end_date }}" />
+          </label>
+          <div class="button-row">
+            <button type="submit" name="action" value="fetch_events">Load Events</button>
+            <button type="submit" name="action" value="find_food">Find Food</button>
+          </div>
+          {% if api_url %}
+          <p class="hint">API URL: {{ api_url }}</p>
+          {% endif %}
+        </form>
+      </section>
+
+      {% if message %}
+      <section class="card success">
+        <strong>Done:</strong> {{ message }}
+      </section>
+      {% endif %}
+
+      {% if error %}
+      <section class="card error">
+        <strong>Oops:</strong> {{ error }}
+      </section>
+      {% endif %}
+
+      {% if events %}
+      <section class="card">
+        <h2>Events ({{ events|length }})</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Event Name</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Category</th>
+                <th>Location</th>
+                <th>Club</th>
+                <th>Attendees</th>
+                <th>Price</th>
+                <th>Registration Status</th>
+                <th>Food Match</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for event in events %}
+              <tr>
+                <td>{{ event.title }}</td>
+                <td>{{ event.date }}</td>
+                <td>{{ event.time }}</td>
+                <td>{{ event.category }}</td>
+                <td>{{ event.location }}</td>
+                <td>{{ event.club }}</td>
+                <td>{{ event.attendees }}</td>
+                <td>{{ event.price }}</td>
+                <td>{{ event.registration_status }}</td>
+                <td>{{ event.food_match_reason or "-" }}</td>
+                <td><a href="{{ event.link }}" target="_blank" rel="noreferrer">Open</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% elif request.method == "POST" and not error %}
+      <section class="card">
+        <h2>No events found for this date range.</h2>
+      </section>
+      {% endif %}
+    </main>
+  </body>
+</html>
