@@ -13,7 +13,7 @@
       </section>
 
       <section class="card">
-        <form method="post" class="search-form">
+        <form method="post" class="search-form" id="events-form">
           <label>
             Start date
             <input type="date" name="start_date" required value="{{ form_data.start_date }}" />
@@ -23,12 +23,16 @@
             <input type="date" name="end_date" required value="{{ form_data.end_date }}" />
           </label>
           <div class="button-row">
-            <button type="submit" name="action" value="fetch_events">Load Events</button>
-            <button type="submit" name="action" value="find_food">Find Food</button>
+            <button type="submit" name="action" value="fetch_events">Step 1) Load Events</button>
+            <button type="submit" name="action" value="find_food">Step 2) Find Food</button>
           </div>
-          {% if api_url %}
-          <p class="hint">API URL: {{ api_url }}</p>
-          {% endif %}
+          <div id="food-loading" class="food-loading" aria-live="polite" hidden>
+            <div class="food-loading-label">Finding food mentions...</div>
+            <div class="pizza-track">
+              <div class="pizza-bar"></div>
+              <div class="pizza-runner" aria-hidden="true">🍕</div>
+            </div>
+          </div>
         </form>
       </section>
 
@@ -90,5 +94,18 @@
       </section>
       {% endif %}
     </main>
+    <script>
+      (function () {
+        const form = document.getElementById("events-form");
+        const loading = document.getElementById("food-loading");
+        if (!form || !loading) return;
+
+        form.addEventListener("submit", function (event) {
+          const submitter = event.submitter;
+          if (!submitter || submitter.value !== "find_food") return;
+          loading.hidden = false;
+        });
+      })();
+    </script>
   </body>
 </html>

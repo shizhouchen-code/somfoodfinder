@@ -1,3 +1,5 @@
 playwright
 python-dateutil
 Flask
+openai
+python-dotenv

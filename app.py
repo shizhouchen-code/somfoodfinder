@@ -1,16 +1,22 @@
 import json
 import html
+import os
 import re
 from datetime import datetime
 from urllib.parse import quote, urlencode, urljoin
 from urllib.request import Request, urlopen
 
 from flask import Flask, render_template, request
+from dotenv import load_dotenv
+from openai import OpenAI
 
 from food_calendar_scraper import validate_date
 
 app = Flask(__name__)
 SOM_MOBILE_EVENTS_API = "https://groups.som.yale.edu/mobile_ws/v17/mobile_events_list"
+load_dotenv()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 
 def build_mobile_events_api_url(start_date_str: str, end_date_str: str) -> str:
@@ -141,8 +147,8 @@ def _check_event_food_mentions(event_url: str) -> tuple[bool, str]:
     with urlopen(request, timeout=30) as response:
         page_html = response.read().decode("utf-8", errors="ignore")
 
-    page_text = _clean_text(html.unescape(page_html)).lower()
-    details_text = _extract_event_details_text(page_html).lower()
+    page_text = _clean_text(html.unescape(page_html))
+    details_text = _extract_event_details_text(page_html)
 
     has_food_tag = bool(re.search(r"food\s*provided", page_text, flags=re.IGNORECASE))
     details_keywords = [
@@ -153,12 +159,75 @@ def _check_event_food_mentions(event_url: str) -> tuple[bool, str]:
         "meal provided",
         "refreshments provided",
     ]
-    matched_keyword = next((k for k in details_keywords if k in details_text), "")
+    details_text_lower = details_text.lower()
+    # Exclude "bring your own" phrasing to avoid false positives.
+    exclusion_patterns = [
+        r"\bbring (?:your own|your)\s+(?:lunch|dinner|breakfast|food|meal)\b",
+        r"\bbyo\b",
+        r"\bbrown bag\b",
+        r"\bfood (?:not|isn't|is not)\s+provided\b",
+        r"\bno (?:food|meal|lunch|dinner|breakfast)\s+(?:provided|will be served)\b",
+    ]
+    if any(re.search(pattern, details_text_lower) for pattern in exclusion_patterns):
+        return False, ""
+
+    matched_keyword = next((k for k in details_keywords if k in details_text_lower), "")
 
     if has_food_tag:
         return True, "Food Provided tag"
     if matched_keyword:
         return True, f"Event details mention '{matched_keyword}'"
+
+    try:
+        return _check_food_with_openai(details_text)
+    except Exception:
+        return False, ""
+
+
+def _check_food_with_openai(details_text: str) -> tuple[bool, str]:
+    if not OPENAI_API_KEY:
+        return False, ""
+    if not details_text.strip():
+        return False, ""
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    # Ask for strict JSON so parsing stays deterministic.
+    response = client.responses.create(
+        model=OPENAI_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "You determine if event details imply food is served. "
+                    "Return strict JSON only with fields: serves_food (boolean), quote (string). "
+                    "quote must be an exact phrase from the details if serves_food=true, else empty string. "
+                    "If details suggest attendees should bring their own food (e.g., 'bring your lunch', BYO, brown bag), "
+                    "then serves_food must be false."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Event details:\n"
+                    f"{details_text}\n\n"
+                    "Answer only as JSON object."
+                ),
+            },
+        ],
+        temperature=0,
+    )
+    raw = response.output_text.strip()
+    if not raw:
+        return False, ""
+
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = raw.replace("json", "", 1).strip()
+    parsed = json.loads(raw)
+    serves_food = bool(parsed.get("serves_food", False))
+    quote = str(parsed.get("quote", "")).strip()
+    if serves_food and quote:
+        return True, f"\"{quote}\""
     return False, ""
 
 
