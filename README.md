@@ -1,10 +1,14 @@
-# Food Calendar Scraper
+# Food and Shows
 
-This app scrapes an events calendar page, opens each event link, and reports events that mention food (for example: "lunch provided" or "food provided").
+This app helps you discover:
+- SOM events with potential food mentions
+- Yale performances ("Shows@Yale") in a selected date range
 
 It includes:
 - A CLI scraper (`food_calendar_scraper.py`)
-- A Pusheen-themed web UI (`app.py`)
+- A Flask web app (`app.py`) with two tabs:
+  - `SOM Food Finder`
+  - `Shows@Yale`
 
 ## What it outputs
 
@@ -48,13 +52,20 @@ OPENAI_MODEL=gpt-4.1-mini
 
 ## Run
 
-### Web UI (Pusheen themed)
+### Web UI
 
 ```powershell
 python .\app.py
 ```
 
 Then open `http://127.0.0.1:5000` in your browser.
+
+## Environment variables
+
+- `OPENAI_API_KEY`: required for AI-assisted food detection
+- `OPENAI_MODEL`: defaults to `gpt-4.1-mini`
+- `PASSWORD`: app login password
+- `FLASK_SECRET_KEY`: required for secure Flask sessions
 
 ### CLI
 
