@@ -98,6 +98,81 @@ button:hover {
   flex-wrap: wrap;
 }
 
+.tabs-card {
+  padding: 10px;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  background: #ffd6ea;
+  color: #7a3254;
+  border: 1px solid #f3bed8;
+}
+
+.tab-button.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-dark);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.food-loading {
+  margin-top: 8px;
+}
+
+.food-loading-label {
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.pizza-track {
+  position: relative;
+  width: 100%;
+  height: 24px;
+}
+
+.pizza-bar {
+  position: absolute;
+  top: 9px;
+  left: 0;
+  right: 0;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffe1ef, #ffd2e8);
+  border: 1px solid #f4bad5;
+}
+
+.pizza-runner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  animation: pizza-run 1.2s linear infinite alternate;
+}
+
+@keyframes pizza-run {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - 18px);
+  }
+}
+
 .hint {
   font-size: 0.93rem;
 }

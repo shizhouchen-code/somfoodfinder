@@ -1,16 +1,26 @@
 import json
 import html
+import os
 import re
-from datetime import datetime
-from urllib.parse import quote, urlencode, urljoin
+from datetime import datetime, timedelta
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
-from flask import Flask, render_template, request
+from flask import Flask, redirect, render_template, request, session, url_for
+from dotenv import load_dotenv
+from openai import OpenAI
 
 from food_calendar_scraper import validate_date
 
 app = Flask(__name__)
 SOM_MOBILE_EVENTS_API = "https://groups.som.yale.edu/mobile_ws/v17/mobile_events_list"
+YALE_SHOWS_API_URL = "https://events.yale.edu/api/2/events"
+YALE_PERFORMANCES_EVENT_TYPE_ID = "46013551058602"
+load_dotenv()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+APP_PASSWORD = os.getenv("PASSWORD", "")
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-in-env")
 
 
 def build_mobile_events_api_url(start_date_str: str, end_date_str: str) -> str:
@@ -26,6 +36,23 @@ def build_mobile_events_api_url(start_date_str: str, end_date_str: str) -> str:
         "filter9": end_date.strftime("%d %b %Y"),
     }
     return f"{SOM_MOBILE_EVENTS_API}?{urlencode(params, quote_via=quote)}"
+
+
+def build_shows_yale_url(start_date_str: str, end_date_str: str) -> str:
+    start_date = validate_date(start_date_str)
+    end_date = validate_date(end_date_str)
+    if start_date > end_date:
+        raise ValueError("start-date must be earlier than or equal to end-date.")
+
+    # Yale Events API behaves like the end date is exclusive, so add 1 day
+    # to preserve an inclusive date range in the UI.
+    api_end_date = end_date + timedelta(days=1)
+    params = {
+        "start": start_date.strftime("%Y-%m-%d"),
+        "end": api_end_date.strftime("%Y-%m-%d"),
+        "pp": "100",
+    }
+    return f"{YALE_SHOWS_API_URL}?{urlencode(params, quote_via=quote)}"
 
 
 def _clean_text(value: str) -> str:
@@ -141,8 +168,8 @@ def _check_event_food_mentions(event_url: str) -> tuple[bool, str]:
     with urlopen(request, timeout=30) as response:
         page_html = response.read().decode("utf-8", errors="ignore")
 
-    page_text = _clean_text(html.unescape(page_html)).lower()
-    details_text = _extract_event_details_text(page_html).lower()
+    page_text = _clean_text(html.unescape(page_html))
+    details_text = _extract_event_details_text(page_html)
 
     has_food_tag = bool(re.search(r"food\s*provided", page_text, flags=re.IGNORECASE))
     details_keywords = [
@@ -153,12 +180,75 @@ def _check_event_food_mentions(event_url: str) -> tuple[bool, str]:
         "meal provided",
         "refreshments provided",
     ]
-    matched_keyword = next((k for k in details_keywords if k in details_text), "")
+    details_text_lower = details_text.lower()
+    # Exclude "bring your own" phrasing to avoid false positives.
+    exclusion_patterns = [
+        r"\bbring (?:your own|your)\s+(?:lunch|dinner|breakfast|food|meal)\b",
+        r"\bbyo\b",
+        r"\bbrown bag\b",
+        r"\bfood (?:not|isn't|is not)\s+provided\b",
+        r"\bno (?:food|meal|lunch|dinner|breakfast)\s+(?:provided|will be served)\b",
+    ]
+    if any(re.search(pattern, details_text_lower) for pattern in exclusion_patterns):
+        return False, ""
+
+    matched_keyword = next((k for k in details_keywords if k in details_text_lower), "")
 
     if has_food_tag:
         return True, "Food Provided tag"
     if matched_keyword:
         return True, f"Event details mention '{matched_keyword}'"
+
+    try:
+        return _check_food_with_openai(details_text)
+    except Exception:
+        return False, ""
+
+
+def _check_food_with_openai(details_text: str) -> tuple[bool, str]:
+    if not OPENAI_API_KEY:
+        return False, ""
+    if not details_text.strip():
+        return False, ""
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    # Ask for strict JSON so parsing stays deterministic.
+    response = client.responses.create(
+        model=OPENAI_MODEL,
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "You determine if event details imply food is served. "
+                    "Return strict JSON only with fields: serves_food (boolean), quote (string). "
+                    "quote must be an exact phrase from the details if serves_food=true, else empty string. "
+                    "If details suggest attendees should bring their own food (e.g., 'bring your lunch', BYO, brown bag), "
+                    "then serves_food must be false."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Event details:\n"
+                    f"{details_text}\n\n"
+                    "Answer only as JSON object."
+                ),
+            },
+        ],
+        temperature=0,
+    )
+    raw = response.output_text.strip()
+    if not raw:
+        return False, ""
+
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        raw = raw.replace("json", "", 1).strip()
+    parsed = json.loads(raw)
+    serves_food = bool(parsed.get("serves_food", False))
+    quote = str(parsed.get("quote", "")).strip()
+    if serves_food and quote:
+        return True, f"\"{quote}\""
     return False, ""
 
 
@@ -176,43 +266,221 @@ def find_food_events(events: list[dict[str, str]]) -> list[dict[str, str]]:
     return food_events
 
 
+def _format_iso_datetime_for_table(value: str) -> tuple[str, str]:
+    if not value:
+        return "", ""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value, ""
+    date_text = parsed.strftime("%a, %b %d, %Y").replace(" 0", " ")
+    time_text = parsed.strftime("%I:%M %p").lstrip("0")
+    return date_text, time_text
+
+
+def _extract_price_from_offer(offer_data: object) -> str:
+    if isinstance(offer_data, dict):
+        return _clean_text(str(offer_data.get("price", "") or ""))
+    if isinstance(offer_data, list):
+        prices = []
+        for offer in offer_data:
+            if isinstance(offer, dict):
+                price_text = _clean_text(str(offer.get("price", "") or ""))
+                if price_text:
+                    prices.append(price_text)
+        return ", ".join(prices)
+    return ""
+
+
+def fetch_shows_events_from_yale(url: str) -> list[dict[str, str]]:
+    def is_performance_event(event_data: dict) -> bool:
+        filters = event_data.get("filters", {})
+        if not isinstance(filters, dict):
+            return False
+        event_types = filters.get("event_types", [])
+        if not isinstance(event_types, list):
+            return False
+
+        for event_type in event_types:
+            if not isinstance(event_type, dict):
+                continue
+            type_id = str(event_type.get("id", "") or "")
+            type_name = _clean_text(str(event_type.get("name", "") or ""))
+            if type_id == YALE_PERFORMANCES_EVENT_TYPE_ID and type_name == "Performances":
+                return True
+        return False
+
+    def fetch_payload(page_number: int | None = None) -> dict:
+        request_url = url
+        if page_number is not None:
+            split = urlsplit(url)
+            query_params = dict(parse_qsl(split.query, keep_blank_values=True))
+            query_params["page"] = str(page_number)
+            request_url = urlunsplit((split.scheme, split.netloc, split.path, urlencode(query_params, quote_via=quote), split.fragment))
+
+        request_obj = Request(
+            request_url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "application/json",
+            },
+        )
+        with urlopen(request_obj, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    first_payload = fetch_payload()
+    page_info = first_payload.get("page", {}) if isinstance(first_payload, dict) else {}
+    page_total = 1
+    if isinstance(page_info, dict):
+        try:
+            page_total = max(1, int(page_info.get("total", 1)))
+        except (TypeError, ValueError):
+            page_total = 1
+
+    all_payloads: list[dict] = [first_payload]
+    for page_number in range(2, page_total + 1):
+        all_payloads.append(fetch_payload(page_number=page_number))
+
+    events: list[dict[str, str]] = []
+    for payload in all_payloads:
+        for event_wrapper in payload.get("events", []):
+            if not isinstance(event_wrapper, dict):
+                continue
+            event_data = event_wrapper.get("event", {})
+            if not isinstance(event_data, dict):
+                continue
+            if not is_performance_event(event_data):
+                continue
+
+            instances = event_data.get("event_instances", [])
+            instance_data = {}
+            if isinstance(instances, list) and instances:
+                first_instance = instances[0]
+                if isinstance(first_instance, dict):
+                    instance_data = first_instance.get("event_instance", {}) or {}
+                    if not isinstance(instance_data, dict):
+                        instance_data = {}
+
+            start_iso = str(instance_data.get("start", "") or "")
+            end_iso = str(instance_data.get("end", "") or "")
+            date_text, start_time_text = _format_iso_datetime_for_table(start_iso)
+            _, end_time_text = _format_iso_datetime_for_table(end_iso)
+
+            all_day = bool(instance_data.get("all_day"))
+            if all_day:
+                time_text = "All day"
+            elif start_time_text and end_time_text:
+                time_text = f"{start_time_text} - {end_time_text}"
+            else:
+                time_text = start_time_text
+
+            price_text = _clean_text(str(event_data.get("ticket_cost", "") or ""))
+            if not price_text and event_data.get("free") is True:
+                price_text = "Free"
+
+            location_text = _clean_text(str(event_data.get("location_name", "") or ""))
+            link_text = _clean_text(str(event_data.get("localist_url", "") or event_data.get("url", "") or ""))
+
+            events.append(
+                {
+                    "title": _clean_text(str(event_data.get("title", "") or "")),
+                    "date": date_text,
+                    "time": time_text,
+                    "location": location_text,
+                    "price": price_text,
+                    "link": link_text,
+                }
+            )
+
+    return [event for event in events if event.get("title")]
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    events = []
-    error = ""
-    message = ""
-    form_data = {
+    is_authenticated = bool(session.get("authenticated"))
+    som_events = []
+    shows_events = []
+    som_error = ""
+    shows_error = ""
+    som_message = ""
+    shows_message = ""
+    auth_error = ""
+    som_form_data = {
         "start_date": datetime.now().strftime("%Y-%m-%d"),
         "end_date": datetime.now().strftime("%Y-%m-%d"),
     }
-    api_url = ""
+    shows_form_data = {
+        "start_date": datetime.now().strftime("%Y-%m-%d"),
+        "end_date": datetime.now().strftime("%Y-%m-%d"),
+    }
+    som_api_url = ""
+    shows_url = ""
+    active_tab = "som"
+    som_submitted = False
+    shows_submitted = False
 
     if request.method == "POST":
-        action = request.form.get("action", "fetch_events")
-        form_data["start_date"] = request.form.get("start_date", "").strip()
-        form_data["end_date"] = request.form.get("end_date", "").strip()
+        if request.form.get("action") == "unlock":
+            submitted_password = request.form.get("password", "")
+            if APP_PASSWORD and submitted_password == APP_PASSWORD:
+                session["authenticated"] = True
+                return redirect(url_for("index"))
+            auth_error = "Incorrect password."
+        elif not is_authenticated:
+            auth_error = "Please enter the password to access the app."
 
-        try:
-            api_url = build_mobile_events_api_url(form_data["start_date"], form_data["end_date"])
-            if action == "fetch_events":
-                events = fetch_events_from_mobile_api(api_url)
-                message = f"Loaded {len(events)} event(s) from mobile JSON API."
-            elif action == "find_food":
-                events = fetch_events_from_mobile_api(api_url)
-                events = find_food_events(events)
-                message = f"Found {len(events)} event(s) with food mentions."
-            else:
-                raise ValueError("Unsupported action.")
-        except Exception as exc:
-            error = str(exc)
+    if is_authenticated and request.method == "POST":
+        action = request.form.get("action", "fetch_events")
+        active_tab = request.form.get("tab", "som")
+
+        if active_tab == "shows":
+            shows_submitted = True
+            shows_form_data["start_date"] = request.form.get("shows_start_date", "").strip()
+            shows_form_data["end_date"] = request.form.get("shows_end_date", "").strip()
+            try:
+                shows_url = build_shows_yale_url(shows_form_data["start_date"], shows_form_data["end_date"])
+                if action != "fetch_shows":
+                    raise ValueError("Unsupported action.")
+                shows_events = fetch_shows_events_from_yale(shows_url)
+                shows_message = f"Loaded {len(shows_events)} show event(s) from Yale Events."
+            except Exception as exc:
+                shows_error = str(exc)
+        else:
+            active_tab = "som"
+            som_submitted = True
+            som_form_data["start_date"] = request.form.get("som_start_date", "").strip()
+            som_form_data["end_date"] = request.form.get("som_end_date", "").strip()
+            try:
+                som_api_url = build_mobile_events_api_url(som_form_data["start_date"], som_form_data["end_date"])
+                if action == "fetch_events":
+                    som_events = fetch_events_from_mobile_api(som_api_url)
+                    som_message = f"Loaded {len(som_events)} event(s) from mobile JSON API."
+                elif action == "find_food":
+                    som_events = fetch_events_from_mobile_api(som_api_url)
+                    som_events = find_food_events(som_events)
+                    som_message = f"Found {len(som_events)} event(s) with food mentions."
+                else:
+                    raise ValueError("Unsupported action.")
+            except Exception as exc:
+                som_error = str(exc)
 
     return render_template(
         "index.html",
-        events=events,
-        error=error,
-        message=message,
-        form_data=form_data,
-        api_url=api_url,
+        som_events=som_events,
+        shows_events=shows_events,
+        som_error=som_error,
+        shows_error=shows_error,
+        som_message=som_message,
+        shows_message=shows_message,
+        auth_error=auth_error,
+        is_authenticated=is_authenticated,
+        som_form_data=som_form_data,
+        shows_form_data=shows_form_data,
+        som_api_url=som_api_url,
+        shows_url=shows_url,
+        active_tab=active_tab,
+        som_submitted=som_submitted,
+        shows_submitted=shows_submitted,
     )
 
 

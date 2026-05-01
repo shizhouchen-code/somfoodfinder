@@ -33,6 +33,19 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
+3. Configure environment variables:
+
+```powershell
+copy .env.example .env
+```
+
+Then edit `.env` and set your OpenAI key:
+
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
 ## Run
 
 ### Web UI (Pusheen themed)
@@ -55,3 +68,4 @@ Use `--output food_events.csv` for CSV output.
 
 - The script tries common date-filter inputs/buttons on the page.
 - If the site layout changes, selectors may need a small update in `apply_date_filter()` and `collect_event_links()`.
+- For events without an explicit `Food Provided` marker, the app uses OpenAI to infer whether food is served from event details and stores the supporting quote in `Food Match`.
