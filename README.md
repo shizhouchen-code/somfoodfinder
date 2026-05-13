@@ -64,7 +64,8 @@ Then open `http://127.0.0.1:5000` in your browser.
 
 - `OPENAI_API_KEY`: required for AI-assisted food detection
 - `OPENAI_MODEL`: defaults to `gpt-4.1-mini`
-- `PASSWORD`: app login password
+- `PASSWORD`: app login password (used when the password gate is on)
+- `PASSWORD_GATE`: when `true` (default) or unset, the app shows the password screen; set to `false`, `0`, `no`, or `off` to disable the gate (e.g. public hosting)
 - `FLASK_SECRET_KEY`: required for secure Flask sessions
 
 ### CLI

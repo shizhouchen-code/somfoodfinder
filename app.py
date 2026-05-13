@@ -23,6 +23,16 @@ APP_PASSWORD = os.getenv("PASSWORD", "")
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-in-env")
 
 
+def _password_gate_enabled() -> bool:
+    raw = os.getenv("PASSWORD_GATE")
+    if raw is None or not raw.strip():
+        return True
+    return raw.strip().lower() not in ("0", "false", "no", "off")
+
+
+PASSWORD_GATE_ENABLED = _password_gate_enabled()
+
+
 def build_mobile_events_api_url(start_date_str: str, end_date_str: str) -> str:
     start_date = validate_date(start_date_str)
     end_date = validate_date(end_date_str)
@@ -397,7 +407,7 @@ def fetch_shows_events_from_yale(url: str) -> list[dict[str, str]]:
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    is_authenticated = bool(session.get("authenticated"))
+    is_authenticated = (not PASSWORD_GATE_ENABLED) or bool(session.get("authenticated"))
     som_events = []
     shows_events = []
     som_error = ""
