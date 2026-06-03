@@ -3,250 +3,295 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Food and Shows</title>
+    <title>Food &amp; Shows | Yale Events</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
   <body>
-    <main class="page">
-      {% if not is_authenticated %}
-      <section class="card hero">
-        <h1>Food and Shows</h1>
-        <p>Enter password to continue.</p>
-      </section>
-
-      <section class="card">
-        <form method="post" class="search-form">
-          <label>
-            Password
-            <input type="password" name="password" required autofocus />
-          </label>
-          <div class="button-row">
-            <button type="submit" name="action" value="unlock">Unlock App</button>
+    <div class="app-shell">
+      <header class="site-header">
+        <div class="site-header__inner">
+          <div class="site-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 10h16M4 14h16M8 6v12M16 6v12"/></svg>
           </div>
-        </form>
-      </section>
-
-      {% if auth_error %}
-      <section class="card error">
-        <strong>Oops:</strong> {{ auth_error }}
-      </section>
-      {% endif %}
-      {% else %}
-      <section class="card hero">
-        <h1>Food and Shows</h1>
-      </section>
-
-      <section class="card tabs-card">
-        <div class="tabs" role="tablist" aria-label="App tabs">
-          <button
-            type="button"
-            class="tab-button {% if active_tab == 'som' %}active{% endif %}"
-            data-tab-target="som"
-            role="tab"
-            aria-selected="{% if active_tab == 'som' %}true{% else %}false{% endif %}"
-          >
-            SOM Food Finder
-          </button>
-          <button
-            type="button"
-            class="tab-button {% if active_tab == 'shows' %}active{% endif %}"
-            data-tab-target="shows"
-            role="tab"
-            aria-selected="{% if active_tab == 'shows' %}true{% else %}false{% endif %}"
-          >
-            Shows@Yale
-          </button>
+          <div class="site-brand">
+            <span class="site-brand__title">Food &amp; Shows</span>
+            <span class="site-brand__tagline">Yale campus events, curated</span>
+          </div>
         </div>
-      </section>
+      </header>
 
-      <section
-        class="tab-panel {% if active_tab == 'som' %}active{% endif %}"
-        id="tab-panel-som"
-        role="tabpanel"
-      >
-        <section class="card">
-          <p>
-            Please stay at events for the full duration and check in if prompted. You will definitely learn
-            something new!
-          </p>
-        </section>
+      {% if not is_authenticated %}
+      <main class="page page--auth">
+        <section class="card card--auth">
+          <span class="card__label">Access</span>
+          <h1>Welcome back</h1>
+          <p class="muted" style="margin-bottom: 24px">Enter your password to continue.</p>
 
-        <section class="card">
-          <form method="post" class="search-form" id="events-form">
-            <input type="hidden" name="tab" value="som" />
-            <label>
-              Start date
-              <input
-                type="date"
-                name="som_start_date"
-                required
-                value="{{ som_form_data.start_date }}"
-              />
-            </label>
-            <label>
-              End date
-              <input
-                type="date"
-                name="som_end_date"
-                required
-                value="{{ som_form_data.end_date }}"
-              />
-            </label>
-            <div class="button-row">
-              <button type="submit" name="action" value="fetch_events">Step 1) Load Events</button>
-              <button type="submit" name="action" value="find_food">Step 2) Find Food</button>
-            </div>
-            <div id="food-loading" class="food-loading" aria-live="polite" hidden>
-              <div class="food-loading-label">Finding food mentions...</div>
-              <div class="pizza-track">
-                <div class="pizza-bar"></div>
-                <div class="pizza-runner" aria-hidden="true">🍕</div>
-              </div>
-            </div>
-          </form>
-        </section>
-
-        {% if som_message %}
-        <section class="card success">
-          <strong>Done:</strong> {{ som_message }}
-        </section>
-        {% endif %}
-
-        {% if som_error %}
-        <section class="card error">
-          <strong>Oops:</strong> {{ som_error }}
-        </section>
-        {% endif %}
-
-        {% if som_events %}
-        <section class="card">
-          <h2>Events ({{ som_events|length }})</h2>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Event Name</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Category</th>
-                  <th>Location</th>
-                  <th>Club</th>
-                  <th>Attendees</th>
-                  <th>Price</th>
-                  <th>Registration Status</th>
-                  <th>Food Match</th>
-                  <th>Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for event in som_events %}
-                <tr>
-                  <td>{{ event.title }}</td>
-                  <td>{{ event.date }}</td>
-                  <td>{{ event.time }}</td>
-                  <td>{{ event.category }}</td>
-                  <td>{{ event.location }}</td>
-                  <td>{{ event.club }}</td>
-                  <td>{{ event.attendees }}</td>
-                  <td>{{ event.price }}</td>
-                  <td>{{ event.registration_status }}</td>
-                  <td>{{ event.food_match_reason or "-" }}</td>
-                  <td><a href="{{ event.link }}" target="_blank" rel="noreferrer">Open</a></td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </section>
-        {% elif som_submitted and not som_error %}
-        <section class="card">
-          <h2>No events found for this date range.</h2>
-        </section>
-        {% endif %}
-      </section>
-
-      <section
-        class="tab-panel {% if active_tab == 'shows' %}active{% endif %}"
-        id="tab-panel-shows"
-        role="tabpanel"
-      >
-        <section class="card">
           <form method="post" class="search-form">
-            <input type="hidden" name="tab" value="shows" />
             <label>
-              Start date
-              <input
-                type="date"
-                name="shows_start_date"
-                required
-                value="{{ shows_form_data.start_date }}"
-              />
-            </label>
-            <label>
-              End date
-              <input
-                type="date"
-                name="shows_end_date"
-                required
-                value="{{ shows_form_data.end_date }}"
-              />
+              Password
+              <input type="password" name="password" required autofocus placeholder="••••••••" />
             </label>
             <div class="button-row">
-              <button type="submit" name="action" value="fetch_shows">Load Shows</button>
+              <button type="submit" name="action" value="unlock" class="btn-primary btn-full">Continue</button>
             </div>
           </form>
+
+          {% if auth_error %}
+          <div class="alert alert--error" style="margin-top: 20px; margin-bottom: 0">
+            <strong>Error:</strong> {{ auth_error }}
+          </div>
+          {% endif %}
+        </section>
+      </main>
+
+      {% else %}
+      <main class="page">
+        <section class="card card--hero">
+          <h1>Discover what's happening</h1>
+          <p>Scan SOM events for food opportunities and browse Yale performances, all in one place.</p>
         </section>
 
-        {% if shows_message %}
-        <section class="card success">
-          <strong>Done:</strong> {{ shows_message }}
-        </section>
-        {% endif %}
-
-        {% if shows_error %}
-        <section class="card error">
-          <strong>Oops:</strong> {{ shows_error }}
-        </section>
-        {% endif %}
-
-        {% if shows_events %}
-        <section class="card">
-          <h2>Shows ({{ shows_events|length }})</h2>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Event Name</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Location</th>
-                  <th>Price</th>
-                  <th>Link</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for event in shows_events %}
-                <tr>
-                  <td>{{ event.title }}</td>
-                  <td>{{ event.date or "-" }}</td>
-                  <td>{{ event.time or "-" }}</td>
-                  <td>{{ event.location or "-" }}</td>
-                  <td>{{ event.price or "-" }}</td>
-                  <td><a href="{{ event.link }}" target="_blank" rel="noreferrer">Open</a></td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+        <section class="card tabs-card">
+          <div class="tabs" role="tablist" aria-label="App tabs">
+            <button
+              type="button"
+              class="tab-button {% if active_tab == 'som' %}active{% endif %}"
+              data-tab-target="som"
+              role="tab"
+              aria-selected="{% if active_tab == 'som' %}true{% else %}false{% endif %}"
+            >
+              SOM Food Finder
+            </button>
+            <button
+              type="button"
+              class="tab-button {% if active_tab == 'shows' %}active{% endif %}"
+              data-tab-target="shows"
+              role="tab"
+              aria-selected="{% if active_tab == 'shows' %}true{% else %}false{% endif %}"
+            >
+              Shows@Yale
+            </button>
           </div>
         </section>
-        {% elif shows_submitted and not shows_error %}
-        <section class="card">
-          <h2>No shows found for this date range.</h2>
+
+        <section
+          class="tab-panel {% if active_tab == 'som' %}active{% endif %}"
+          id="tab-panel-som"
+          role="tabpanel"
+        >
+          <section class="card card--flat">
+            <div class="callout">
+              <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <span>Stay for the full duration of events and check in when prompted. You'll learn something new along the way.</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Search events</h2>
+            <form method="post" class="search-form" id="events-form">
+              <input type="hidden" name="tab" value="som" />
+              <div class="form-row">
+                <label>
+                  Start date
+                  <input
+                    type="date"
+                    name="som_start_date"
+                    required
+                    value="{{ som_form_data.start_date }}"
+                  />
+                </label>
+                <label>
+                  End date
+                  <input
+                    type="date"
+                    name="som_end_date"
+                    required
+                    value="{{ som_form_data.end_date }}"
+                  />
+                </label>
+              </div>
+              <div class="button-row">
+                <button type="submit" name="action" value="fetch_events" class="btn-secondary">Load events</button>
+                <button type="submit" name="action" value="find_food" class="btn-primary">Find food</button>
+              </div>
+              <div id="food-loading" class="food-loading" aria-live="polite" hidden>
+                <div class="food-loading-label">Analyzing events for food mentions</div>
+                <div class="progress-track">
+                  <div class="progress-bar"></div>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          {% if som_message %}
+          <div class="alert alert--success">
+            <strong>Success:</strong> {{ som_message }}
+          </div>
+          {% endif %}
+
+          {% if som_error %}
+          <div class="alert alert--error">
+            <strong>Error:</strong> {{ som_error }}
+          </div>
+          {% endif %}
+
+          {% if som_events %}
+          <section class="card">
+            <div class="results-header">
+              <h2>Events</h2>
+              <span class="results-count">{{ som_events|length }} result{{ 's' if som_events|length != 1 else '' }}</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Category</th>
+                    <th>Location</th>
+                    <th>Club</th>
+                    <th>Attendees</th>
+                    <th>Price</th>
+                    <th>Registration</th>
+                    <th>Food match</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for event in som_events %}
+                  <tr>
+                    <td>{{ event.title }}</td>
+                    <td>{{ event.date }}</td>
+                    <td>{{ event.time }}</td>
+                    <td>{{ event.category }}</td>
+                    <td>{{ event.location }}</td>
+                    <td>{{ event.club }}</td>
+                    <td>{{ event.attendees }}</td>
+                    <td>{{ event.price }}</td>
+                    <td>{{ event.registration_status }}</td>
+                    <td>
+                      {% if event.food_match_reason %}
+                      <span class="food-tag">{{ event.food_match_reason }}</span>
+                      {% else %}
+                      <span class="muted">-</span>
+                      {% endif %}
+                    </td>
+                    <td><a href="{{ event.link }}" target="_blank" rel="noreferrer">View</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          {% elif som_submitted and not som_error %}
+          <section class="card">
+            <div class="empty-state">
+              <div class="empty-state__title">No events found</div>
+              <p>Try adjusting your date range and search again.</p>
+            </div>
+          </section>
+          {% endif %}
         </section>
-        {% endif %}
-      </section>
+
+        <section
+          class="tab-panel {% if active_tab == 'shows' %}active{% endif %}"
+          id="tab-panel-shows"
+          role="tabpanel"
+        >
+          <section class="card">
+            <h2>Browse performances</h2>
+            <form method="post" class="search-form">
+              <input type="hidden" name="tab" value="shows" />
+              <div class="form-row">
+                <label>
+                  Start date
+                  <input
+                    type="date"
+                    name="shows_start_date"
+                    required
+                    value="{{ shows_form_data.start_date }}"
+                  />
+                </label>
+                <label>
+                  End date
+                  <input
+                    type="date"
+                    name="shows_end_date"
+                    required
+                    value="{{ shows_form_data.end_date }}"
+                  />
+                </label>
+              </div>
+              <div class="button-row">
+                <button type="submit" name="action" value="fetch_shows" class="btn-primary">Load shows</button>
+              </div>
+            </form>
+          </section>
+
+          {% if shows_message %}
+          <div class="alert alert--success">
+            <strong>Success:</strong> {{ shows_message }}
+          </div>
+          {% endif %}
+
+          {% if shows_error %}
+          <div class="alert alert--error">
+            <strong>Error:</strong> {{ shows_error }}
+          </div>
+          {% endif %}
+
+          {% if shows_events %}
+          <section class="card">
+            <div class="results-header">
+              <h2>Shows</h2>
+              <span class="results-count">{{ shows_events|length }} result{{ 's' if shows_events|length != 1 else '' }}</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Location</th>
+                    <th>Price</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for event in shows_events %}
+                  <tr>
+                    <td>{{ event.title }}</td>
+                    <td>{{ event.date or "-" }}</td>
+                    <td>{{ event.time or "-" }}</td>
+                    <td>{{ event.location or "-" }}</td>
+                    <td>{{ event.price or "-" }}</td>
+                    <td><a href="{{ event.link }}" target="_blank" rel="noreferrer">View</a></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          {% elif shows_submitted and not shows_error %}
+          <section class="card">
+            <div class="empty-state">
+              <div class="empty-state__title">No shows found</div>
+              <p>Try adjusting your date range and search again.</p>
+            </div>
+          </section>
+          {% endif %}
+        </section>
+      </main>
       {% endif %}
-    </main>
+
+      <footer class="site-footer">
+        Food &amp; Shows, built for the Yale community
+      </footer>
+    </div>
+
     <script>
       (function () {
         const tabButtons = document.querySelectorAll("[data-tab-target]");
