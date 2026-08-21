@@ -225,6 +225,10 @@ p {
   line-height: 1.5;
 }
 
+.callout + .callout {
+  margin-top: 12px;
+}
+
 .callout__icon {
   flex-shrink: 0;
   width: 20px;

@@ -60,6 +60,16 @@ python .\app.py
 
 Then open `http://127.0.0.1:5000` in your browser.
 
+### Render / production
+
+Use this start command (also in `Procfile`):
+
+```bash
+gunicorn --bind 0.0.0.0:$PORT --timeout 120 --workers 2 app:app
+```
+
+Find Food scans event pages in parallel and stops around 25 seconds so requests stay under Render's HTTP time limit.
+
 ## Environment variables
 
 - `OPENAI_API_KEY`: required for AI-assisted food detection

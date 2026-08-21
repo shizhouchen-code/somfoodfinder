@@ -85,6 +85,10 @@
               <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
               <span>Stay for the full duration of events and check in when prompted. You'll learn something new along the way.</span>
             </div>
+            <div class="callout">
+              <svg class="callout__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              <span>Food Finder searches are limited to <strong>today through the next two weeks</strong> ({{ som_min_date }} to {{ som_max_date }}). Narrower ranges also finish faster.</span>
+            </div>
           </section>
 
           <section class="card">
@@ -98,6 +102,8 @@
                     type="date"
                     name="som_start_date"
                     required
+                    min="{{ som_min_date }}"
+                    max="{{ som_max_date }}"
                     value="{{ som_form_data.start_date }}"
                   />
                 </label>
@@ -107,6 +113,8 @@
                     type="date"
                     name="som_end_date"
                     required
+                    min="{{ som_min_date }}"
+                    max="{{ som_max_date }}"
                     value="{{ som_form_data.end_date }}"
                   />
                 </label>
